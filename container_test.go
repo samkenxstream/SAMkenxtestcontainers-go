@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -127,50 +126,6 @@ func Test_GetDockerfile(t *testing.T) {
 	}
 }
 
-func Test_GetAuthConfigs(t *testing.T) {
-	type TestCase struct {
-		name                string
-		ExpectedAuthConfigs map[string]types.AuthConfig
-		ContainerRequest    ContainerRequest
-	}
-
-	testTable := []TestCase{
-		{
-			name:                "defaults to no auth",
-			ExpectedAuthConfigs: nil,
-			ContainerRequest: ContainerRequest{
-				FromDockerfile: FromDockerfile{},
-			},
-		},
-		{
-			name: "will specify credentials",
-			ExpectedAuthConfigs: map[string]types.AuthConfig{
-				"https://myregistry.com/": {
-					Username: "username",
-					Password: "password",
-				},
-			},
-			ContainerRequest: ContainerRequest{
-				FromDockerfile: FromDockerfile{
-					AuthConfigs: map[string]types.AuthConfig{
-						"https://myregistry.com/": {
-							Username: "username",
-							Password: "password",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, testCase := range testTable {
-		t.Run(testCase.name, func(t *testing.T) {
-			cfgs := testCase.ContainerRequest.GetAuthConfigs()
-			assert.Equal(t, testCase.ExpectedAuthConfigs, cfgs)
-		})
-	}
-}
-
 func Test_BuildImageWithContexts(t *testing.T) {
 	type TestCase struct {
 		Name               string
@@ -278,7 +233,7 @@ func Test_BuildImageWithContexts(t *testing.T) {
 		},
 		{
 			Name:               "test buildling from a context on the filesystem",
-			ContextPath:        "./testresources",
+			ContextPath:        "./testdata",
 			Dockerfile:         "echo.Dockerfile",
 			ExpectedEchoOutput: "this is from the echo test Dockerfile",
 			ContextArchive: func() (io.Reader, error) {
@@ -463,4 +418,58 @@ func TestVolumeMount(t *testing.T) {
 			assert.Equalf(t, tt.want, VolumeMount(tt.args.volumeName, tt.args.mountTarget), "VolumeMount(%v, %v)", tt.args.volumeName, tt.args.mountTarget)
 		})
 	}
+}
+
+func TestOverrideContainerRequest(t *testing.T) {
+	req := GenericContainerRequest{
+		ContainerRequest: ContainerRequest{
+			Env: map[string]string{
+				"BAR": "BAR",
+			},
+			Image:        "foo",
+			ExposedPorts: []string{"12345/tcp"},
+			WaitingFor: wait.ForNop(
+				func(ctx context.Context, target wait.StrategyTarget) error {
+					return nil
+				},
+			),
+			Networks: []string{"foo", "bar", "baaz"},
+			NetworkAliases: map[string][]string{
+				"foo": {"foo0", "foo1", "foo2", "foo3"},
+			},
+		},
+	}
+
+	toBeMergedRequest := GenericContainerRequest{
+		ContainerRequest: ContainerRequest{
+			Env: map[string]string{
+				"FOO": "FOO",
+			},
+			Image:        "bar",
+			ExposedPorts: []string{"67890/tcp"},
+			Networks:     []string{"foo1", "bar1"},
+			NetworkAliases: map[string][]string{
+				"foo1": {"bar"},
+			},
+			WaitingFor: wait.ForLog("foo"),
+		},
+	}
+
+	// the toBeMergedRequest should be merged into the req
+	CustomizeRequest(toBeMergedRequest)(&req)
+
+	// toBeMergedRequest should not be changed
+	assert.Equal(t, "", toBeMergedRequest.Env["BAR"])
+	assert.Equal(t, 1, len(toBeMergedRequest.ExposedPorts))
+	assert.Equal(t, "67890/tcp", toBeMergedRequest.ExposedPorts[0])
+
+	// req should be merged with toBeMergedRequest
+	assert.Equal(t, "FOO", req.Env["FOO"])
+	assert.Equal(t, "BAR", req.Env["BAR"])
+	assert.Equal(t, "bar", req.Image)
+	assert.Equal(t, []string{"12345/tcp", "67890/tcp"}, req.ExposedPorts)
+	assert.Equal(t, []string{"foo", "bar", "baaz", "foo1", "bar1"}, req.Networks)
+	assert.Equal(t, []string{"foo0", "foo1", "foo2", "foo3"}, req.NetworkAliases["foo"])
+	assert.Equal(t, []string{"bar"}, req.NetworkAliases["foo1"])
+	assert.Equal(t, wait.ForLog("foo"), req.WaitingFor)
 }

@@ -21,9 +21,8 @@ go get github.com/testcontainers/testcontainers-go/modules/compose
 
 	```
 	replace (
-		github.com/docker/cli => github.com/docker/cli v20.10.3-0.20221013132413-1d6c6e2367e2+incompatible // 22.06 master branch
-		github.com/docker/docker => github.com/docker/docker v20.10.3-0.20221013203545-33ab36d6b304+incompatible // 22.06 branch
-		github.com/moby/buildkit => github.com/moby/buildkit v0.10.1-0.20220816171719-55ba9d14360a // same as buildx
+
+		github.com/cucumber/godog => github.com/laurazard/godog v0.0.0-20220922095256-4c4b17abdae7
 
 		// For k8s dependencies, we use a replace directive, to prevent them being
 		// upgraded to the version specified in containerd, which is not relevant to the
@@ -53,11 +52,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	tc "github.com/testcontainers/testcontainers-go"
+	tc "github.com/testcontainers/testcontainers-go/modules/compose"
 )
 
 func TestSomething(t *testing.T) {
-	compose, err := tc.NewDockerCompose("testresources/docker-compose.yml")
+	compose, err := tc.NewDockerCompose("testdata/docker-compose.yml")
 	assert.NoError(t, err, "NewDockerComposeAPI()")
 
 	t.Cleanup(func() {
@@ -83,12 +82,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	tc "github.com/testcontainers/testcontainers-go"
+	tc "github.com/testcontainers/testcontainers-go/modules/compose"
 )
 
 func TestSomethingElse(t *testing.T) {
 	identifier := tc.StackIdentifier("some_ident")
-	compose, err := tc.NewDockerComposeWith(tc.WithStackFiles("./testresources/docker-compose-simple.yml"), identifier)
+	compose, err := tc.NewDockerComposeWith(tc.WithStackFiles("./testdata/docker-compose-simple.yml"), identifier)
 	assert.NoError(t, err, "NewDockerComposeAPIWith()")
 
 	t.Cleanup(func() {
@@ -131,13 +130,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	tc "github.com/testcontainers/testcontainers-go"
+	tc "github.com/testcontainers/testcontainers-go/modules/compose"
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
 func TestSomethingWithWaiting(t *testing.T) {
 	identifier := tc.StackIdentifier("some_ident")
-	compose, err := tc.NewDockerComposeWith(tc.WithStackFiles("./testresources/docker-compose-simple.yml"), identifier)
+	compose, err := tc.NewDockerComposeWith(tc.WithStackFiles("./testdata/docker-compose-simple.yml"), identifier)
 	assert.NoError(t, err, "NewDockerComposeAPIWith()")
 
 	t.Cleanup(func() {
@@ -183,7 +182,7 @@ that Docker Compose needs to be present on dev and CI machines.
 ### Examples
 
 ```go
-composeFilePaths := []string {"testresources/docker-compose.yml"}
+composeFilePaths := []string {"testdata/docker-compose.yml"}
 identifier := strings.ToLower(uuid.New().String())
 
 compose := tc.NewLocalDockerCompose(composeFilePaths, identifier)
@@ -209,7 +208,7 @@ In the following example, we demonstrate how to stop a Docker Compose created pr
 convenient `Down` method.
 
 ```go
-composeFilePaths := []string{"testresources/docker-compose.yml"}
+composeFilePaths := []string{"testdata/docker-compose.yml"}
 
 compose := tc.NewLocalDockerCompose(composeFilePaths, identifierFromExistingRunningCompose)
 execError := compose.Down()

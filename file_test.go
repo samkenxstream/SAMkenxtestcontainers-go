@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_IsDir(t *testing.T) {
@@ -23,7 +24,7 @@ func Test_IsDir(t *testing.T) {
 
 	tests := []cases{
 		{
-			filepath: "testresources",
+			filepath: "testdata",
 			expected: true,
 			err:      nil,
 		},
@@ -53,43 +54,65 @@ func Test_IsDir(t *testing.T) {
 }
 
 func Test_TarDir(t *testing.T) {
-	src := filepath.Join(".", "testresources")
-
-	buff, err := tarDir(src, 0755)
-	if err != nil {
-		t.Fatal(err)
+	originalSrc := filepath.Join(".", "testdata")
+	tests := []struct {
+		abs bool
+	}{
+		{
+			abs: false,
+		},
+		{
+			abs: true,
+		},
 	}
 
-	tmpDir := filepath.Join(t.TempDir(), "subfolder")
-	err = untar(tmpDir, bytes.NewReader(buff.Bytes()))
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("TarDir with abs=%t", test.abs), func(t *testing.T) {
+			src := originalSrc
+			if test.abs {
+				absSrc, err := filepath.Abs(src)
+				require.Nil(t, err)
 
-	srcFiles, err := os.ReadDir(src)
-	if err != nil {
-		log.Fatal(err)
-	}
+				src = absSrc
+			}
 
-	for _, srcFile := range srcFiles {
-		if srcFile.IsDir() {
-			continue
-		}
-		srcBytes, err := os.ReadFile(filepath.Join(src, srcFile.Name()))
-		if err != nil {
-			t.Fatal(err)
-		}
+			buff, err := tarDir(src, 0755)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		untarBytes, err := os.ReadFile(filepath.Join(tmpDir, "testresources", srcFile.Name()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		assert.Equal(t, srcBytes, untarBytes)
+			tmpDir := filepath.Join(t.TempDir(), "subfolder")
+			err = untar(tmpDir, bytes.NewReader(buff.Bytes()))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			srcFiles, err := os.ReadDir(src)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			for _, srcFile := range srcFiles {
+				if srcFile.IsDir() {
+					continue
+				}
+				srcBytes, err := os.ReadFile(filepath.Join(src, srcFile.Name()))
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				untarBytes, err := os.ReadFile(filepath.Join(tmpDir, "testdata", srcFile.Name()))
+				if err != nil {
+					t.Fatal(err)
+				}
+				assert.Equal(t, srcBytes, untarBytes)
+			}
+		})
 	}
 }
 
 func Test_TarFile(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join(".", "testresources", "Dockerfile"))
+	b, err := os.ReadFile(filepath.Join(".", "testdata", "Dockerfile"))
 	if err != nil {
 		t.Fatal(err)
 	}
